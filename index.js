@@ -72,7 +72,7 @@ function selfPing() {
 }
 
 // Avvia il ping ogni 10 minuti
-setInterval(selfPing, 10 * 60 * 1000);
+setInterval(selfPing, 3 * 60 * 1000);
 
 // Primo ping subito all’avvio
 selfPing();
