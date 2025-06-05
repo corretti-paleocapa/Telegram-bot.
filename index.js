@@ -2,9 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 const bodyParser = require('body-parser');
+const https = require('https');
 
 const token = process.env.BOT_TOKEN;
-const url = process.env.APP_URL; // es: https://tuo-nome-app.cloudprovider.com
+const url = process.env.APP_URL; // es: https://telegram-bot.onrender.com
 const port = process.env.PORT || 3000;
 
 if (!token || !url) {
@@ -15,7 +16,12 @@ if (!token || !url) {
 const app = express();
 app.use(bodyParser.json());
 
-// Inizializza il bot in modalità "webhook"
+// Endpoint semplice per ping "keep alive"
+app.get('/', (req, res) => {
+  res.send('Bot attivo!');
+});
+
+// Inizializza il bot Telegram senza polling (solo webhook)
 const bot = new TelegramBot(token);
 bot.setWebHook(`${url}/webhook`);
 
@@ -56,7 +62,22 @@ bot.on('message', (msg) => {
   }
 });
 
-// Avvia il server web
+// Funzione che fa ping a se stesso ogni 10 minuti per "tenere sveglio" il bot
+function selfPing() {
+  https.get(url, (res) => {
+    console.log('Ping a me stesso inviato, status:', res.statusCode);
+  }).on('error', (err) => {
+    console.error('Errore nel ping a me stesso:', err.message);
+  });
+}
+
+// Avvia il ping ogni 10 minuti
+setInterval(selfPing, 10 * 60 * 1000);
+
+// Primo ping subito all’avvio
+selfPing();
+
+// Avvia il server Express
 app.listen(port, () => {
   console.log(`Bot in ascolto su porta ${port}`);
 });
