@@ -1,26 +1,36 @@
 require('dotenv').config();
+const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 
-// Ottieni il token dalle variabili d'ambiente
 const token = process.env.BOT_TOKEN;
-if (!token) {
-  console.error('BOT_TOKEN non trovato nelle variabili d\'ambiente');
+const url = process.env.WEBHOOK_URL; // es: https://tuo-servizio.onrender.com
+const port = process.env.PORT || 3000;
+
+if (!token || !url) {
+  console.error('BOT_TOKEN o WEBHOOK_URL non trovati nelle variabili d\'ambiente');
   process.exit(1);
 }
 
-// Crea una nuova istanza del bot
-const bot = new TelegramBot(token, { polling: true });
+// Inizializza il bot con webhook
+const bot = new TelegramBot(token);
+bot.setWebHook(`${url}/bot${token}`);
 
-// Gestisci il comando /start
-bot.onText(/\/start/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, 'Ciao! Sono il tuo bot Telegram. Usa /help per vedere i comandi disponibili.');
+const app = express();
+app.use(express.json());
+
+// Ricevi aggiornamenti dal Webhook di Telegram
+app.post(`/bot${token}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
 });
 
-// Gestisci il comando /help
+// Comandi
+bot.onText(/\/start/, (msg) => {
+  bot.sendMessage(msg.chat.id, 'Ciao! Sono il tuo bot Telegram. Usa /help per vedere i comandi disponibili.');
+});
+
 bot.onText(/\/help/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, `
+  bot.sendMessage(msg.chat.id, `
 Comandi disponibili:
 /start - Avvia il bot
 /help - Mostra questo messaggio di aiuto
@@ -28,28 +38,24 @@ Comandi disponibili:
 `);
 });
 
-// Gestisci il comando /info
 bot.onText(/\/info/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, `
+  bot.sendMessage(msg.chat.id, `
 Bot creato durante il corso di Containerizzazione e Deployment.
 Versione: 1.0.0
 Ambiente: ${process.env.NODE_ENV || 'development'}
 `);
 });
 
-// Gestisci messaggi non riconosciuti
-
+// Gestione generica di altri messaggi
 bot.on('message', (msg) => {
   const chatId = msg.chat.id;
-  
-  // Ignora i comandi che abbiamo già gestito
-  if (msg.text && (msg.text.startsWith('/start') || 
-                   msg.text.startsWith('/help') || 
-                   msg.text.startsWith('/info'))) {
+  if (msg.text.startsWith('/start') || msg.text.startsWith('/help') || msg.text.startsWith('/info')) {
     return;
   }
-  
   bot.sendMessage(chatId, 'Non ho capito. Usa /help per vedere i comandi disponibili.');
 });
-console.log('Bot avviato con successo!');
+
+// Avvia il web server
+app.listen(port, () => {
+  console.log(`Server in ascolto sulla porta ${port}`);
+});
